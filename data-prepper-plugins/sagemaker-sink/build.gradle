@@ -1,0 +1,50 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+dependencies {
+    implementation project(':data-prepper-api')
+    implementation project(path: ':data-prepper-plugins:common')
+    implementation project(':data-prepper-plugins:aws-plugin-api')
+    testImplementation project(':data-prepper-plugins:csv-processor')
+    testImplementation testLibs.slf4j.simple
+
+}
+
+test {
+    useJUnitPlatform()
+}
+
+sourceSets {
+    integrationTest {
+        java {
+            compileClasspath += main.output + test.output
+            runtimeClasspath += main.output + test.output
+            srcDir file('src/integrationTest/java')
+        }
+        resources.srcDir file('src/integrationTest/resources')
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntime.extendsFrom testRuntime
+}
+
+task integrationTest(type: Test) {
+    group = 'verification'
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+
+    useJUnitPlatform()
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    systemProperty 'log4j.configurationFile', 'src/test/resources/log4j2.properties'
+    systemProperty 'tests.s3sink.bucket', System.getProperty('tests.s3sink.bucket')
+    systemProperty 'tests.s3sink.region', System.getProperty('tests.s3sink.region')
+
+    filter {
+        includeTestsMatching '*IT'
+    }
+}
