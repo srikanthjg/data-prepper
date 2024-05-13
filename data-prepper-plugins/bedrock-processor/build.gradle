@@ -1,0 +1,20 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+dependencies {
+    implementation project(':data-prepper-api')
+    implementation project(':data-prepper-plugins:common')
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation project(':data-prepper-plugins:aws-plugin-api')
+    implementation 'com.fasterxml.jackson.core:jackson-core'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-common:1.9.22'
+    implementation 'software.amazon.awssdk:bedrockruntime'
+    implementation 'software.amazon.awssdk:sts'
+    implementation 'org.json:json:20211205'
+    testImplementation project(':data-prepper-test-common')
+}
+
+test {
+    useJUnitPlatform()
+}
