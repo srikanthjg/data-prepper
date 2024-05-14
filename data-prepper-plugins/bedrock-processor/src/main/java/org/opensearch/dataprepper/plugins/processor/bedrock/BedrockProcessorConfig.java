@@ -27,4 +27,24 @@ public class BedrockProcessorConfig {
     @JsonProperty("style_preset")
     private String style_preset;
 
+    public String getModelId() {
+        return modelId;
+    }
+
+    public long getSeed() {
+        return seed;
+    }
+
+    public String getTemperature() {
+        return temperature;
+    }
+
+    public String getMax_tokens_to_sample() {
+        return max_tokens_to_sample;
+    }
+
+    public String getStyle_preset() {
+        return style_preset;
+    }
+
 }

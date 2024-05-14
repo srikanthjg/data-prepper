@@ -5,8 +5,6 @@
 
 package org.opensearch.dataprepper.plugins.processor.bedrock;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
 import org.opensearch.dataprepper.metrics.PluginMetrics;
 import org.opensearch.dataprepper.model.annotations.DataPrepperPlugin;
 import org.opensearch.dataprepper.model.annotations.DataPrepperPluginConstructor;
@@ -15,23 +13,19 @@ import org.opensearch.dataprepper.model.processor.AbstractProcessor;
 import org.opensearch.dataprepper.model.processor.Processor;
 import org.opensearch.dataprepper.model.record.Record;
 import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeClaude;
-import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeMistral7B;
 import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeStableDiffusion;
-import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeTitanEmbed;
 import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeTitanImage;
 import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeTitanImageEmbed;
 import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeTitanTextEmbed;
-import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.*;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.CLAUDE_V2;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.STABLE_DIFFUSION;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.TITAN_IMAGE;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.TITAN_IMAGE_EMBEDDING_V1;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.TITAN_TEXT_EMBEDDING_V1;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.core.SdkBytes;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
-import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
-import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
 import java.util.Collection;
-import java.util.List;
 
 @DataPrepperPlugin(name = "bedrock", pluginType = Processor.class, pluginConfigurationType = BedrockProcessorConfig.class)
 public class BedrockProcessor extends AbstractProcessor<Record<Event>, Record<Event>> {
@@ -50,7 +44,7 @@ public class BedrockProcessor extends AbstractProcessor<Record<Event>, Record<Ev
             final Event recordEvent = record.getData();
             try {
                 String modelId = config.getModelId();
-                switch(modelId) {
+                switch (modelId) {
                     case CLAUDE_V2:
                         invokeClaude(recordEvent);
                         break;
