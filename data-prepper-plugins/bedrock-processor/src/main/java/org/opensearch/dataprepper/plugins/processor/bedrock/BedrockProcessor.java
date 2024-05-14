@@ -14,30 +14,29 @@ import org.opensearch.dataprepper.model.event.Event;
 import org.opensearch.dataprepper.model.processor.AbstractProcessor;
 import org.opensearch.dataprepper.model.processor.Processor;
 import org.opensearch.dataprepper.model.record.Record;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeClaude;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeMistral7B;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeStableDiffusion;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeTitanEmbed;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeTitanImage;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeTitanImageEmbed;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.InvokeModel.invokeTitanTextEmbed;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
+import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
 import java.util.Collection;
+import java.util.List;
 
 @DataPrepperPlugin(name = "bedrock", pluginType = Processor.class, pluginConfigurationType = BedrockProcessorConfig.class)
 public class BedrockProcessor extends AbstractProcessor<Record<Event>, Record<Event>> {
     private static final Logger LOG = LoggerFactory.getLogger(BedrockProcessor.class);
     private final BedrockProcessorConfig config;
-    BedrockRuntimeClient runtime = BedrockRuntimeClient.builder()
-            .region(Region.US_EAST_1)
-            .build();
-    private static final String CLAUDE = "anthropic.claude-v2";
-    private static final String TITAN_TEXT_EMBEDDING = "amazon.titan-embed-text-v1";
-    private static final String JURASSIC2 = "ai21.j2-mid-v1";
-    private static final String MISTRAL7B = "mistral.mistral-7b-instruct-v0:2";
-    private static final String MIXTRAL8X7B = "mistral.mixtral-8x7b-instruct-v0:1";
-    private static final String STABLE_DIFFUSION = "stability.stable-diffusion-xl";
-    private static final String TITAN_IMAGE = "amazon.titan-image-generator-v1";
-
 
     @DataPrepperPluginConstructor
     public BedrockProcessor(final PluginMetrics pluginMetrics, final BedrockProcessorConfig config) {
@@ -52,12 +51,24 @@ public class BedrockProcessor extends AbstractProcessor<Record<Event>, Record<Ev
             try {
                 String modelId = config.getModelId();
                 switch(modelId) {
-                    case CLAUDE:
+                    case CLAUDE_V2:
                         invokeClaude(recordEvent);
                         break;
 
-                    case TITAN_TEXT_EMBEDDING:
-                        invokeTitanEmbed(recordEvent, TITAN_TEXT_EMBEDDING);
+                    case TITAN_TEXT_EMBEDDING_V1:
+                        invokeTitanTextEmbed(recordEvent);
+                        break;
+
+                    case TITAN_IMAGE_EMBEDDING_V1:
+                        invokeTitanImageEmbed(recordEvent);
+                        break;
+
+                    case STABLE_DIFFUSION:
+                        invokeStableDiffusion(recordEvent);
+                        break;
+
+                    case TITAN_IMAGE:
+                        invokeTitanImage(recordEvent);
                         break;
                 }
             } catch (Exception e) {
@@ -65,9 +76,6 @@ public class BedrockProcessor extends AbstractProcessor<Record<Event>, Record<Ev
             }
         }
         return records;
-    }
-
-    private void invokeClaude(Event recordEvent) {
     }
 
     @Override
@@ -83,33 +91,4 @@ public class BedrockProcessor extends AbstractProcessor<Record<Event>, Record<Ev
     public void shutdown() {
     }
 
-    private void invokeTitanEmbed(Event recordEvent, final String modelId) {
-        // Create a Bedrock Runtime client in the AWS Region of your choice.
-        BedrockRuntimeClient client = BedrockRuntimeClient.builder()
-                .region(Region.US_EAST_1)
-                .build();
-
-        // Set the model ID
-        final String modelIdText = "amazon.titan-embed-text-v1";
-
-        // Create a JSON payload using the model's native structure.
-        JSONObject request = new JSONObject().put("inputText", recordEvent.toJsonString());
-
-        // Encode and send the request.
-        InvokeModelResponse response = client.invokeModel(req -> req
-                .body(SdkBytes.fromUtf8String(request.toString()))
-                .modelId(modelId));
-
-        // Decode the model's native response body.
-        JSONObject nativeResponse = new JSONObject(response.body().asUtf8String());
-
-        // Extract and print the generated embedding.
-        JSONArray embeddingsJsonArray = nativeResponse.getJSONArray("embedding");
-        float[] embeddings = new float[embeddingsJsonArray.length()];
-        for (int i = 0; i < embeddingsJsonArray.length(); i++) {
-            embeddings[i] = embeddingsJsonArray.getFloat(i);
-        }
-
-        recordEvent.put("embeddings", (Object) embeddings);
-    }
 }

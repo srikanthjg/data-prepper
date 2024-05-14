@@ -1,0 +1,17 @@
+package org.opensearch.dataprepper.plugins.processor.bedrock;
+
+public class ModelNames {
+    //Embeddings
+    static final String TITAN_TEXT_EMBEDDING_V1 = "amazon.titan-embed-text-v1";
+    static final String TITAN_IMAGE_EMBEDDING_V1 = "amazon.titan-embed-image-v1";
+    static final String TITAN_TEXT_EMBEDDING_V2 = "amazon.titan-embed-text-v2:0"
+    //LLM
+    static final String CLAUDE_V2 = "anthropic.claude-v2";
+    static final String JURASSIC2 = "ai21.j2-mid-v1";
+    static final String MISTRAL7B = "mistral.mistral-7b-instruct-v0:2";
+    static final String MIXTRAL8X7B = "mistral.mixtral-8x7b-instruct-v0:1";
+
+    //Image
+    static final String STABLE_DIFFUSION = "stability.stable-diffusion-xl";
+    static final String TITAN_IMAGE = "amazon.titan-image-generator-v1";
+}

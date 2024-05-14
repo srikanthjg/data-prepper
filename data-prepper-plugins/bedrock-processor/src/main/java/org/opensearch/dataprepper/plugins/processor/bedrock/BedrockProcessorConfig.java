@@ -8,13 +8,23 @@ package org.opensearch.dataprepper.plugins.processor.bedrock;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotNull;
 
+@lombok.Getter
 public class BedrockProcessorConfig {
 
     @NotNull
     @JsonProperty("modelId")
     private String modelId;
 
-    public String getModelId() {
-        return modelId;
-    }
+    @JsonProperty("seed")
+    private long seed;
+
+    @JsonProperty("temperature")
+    private String temperature;
+
+    @JsonProperty("max_tokens_to_sample")
+    private String max_tokens_to_sample;
+
+    @JsonProperty("style_preset")
+    private String style_preset;
+
 }
