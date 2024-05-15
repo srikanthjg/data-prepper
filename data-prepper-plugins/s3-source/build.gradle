@@ -30,6 +30,7 @@ dependencies {
     implementation 'org.apache.parquet:parquet-common:1.14.0'
     implementation 'dev.failsafe:failsafe:3.3.2'
     implementation 'org.apache.httpcomponents:httpcore:4.4.16'
+    implementation 'dev.langchain4j:langchain4j:0.30.0'
     testImplementation libs.commons.lang3
     testImplementation 'org.wiremock:wiremock:3.4.2'
     testImplementation 'org.eclipse.jetty:jetty-bom:11.0.20'

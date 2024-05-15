@@ -8,7 +8,6 @@ package org.opensearch.dataprepper.plugins.processor.bedrock;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotNull;
 
-@lombok.Getter
 public class BedrockProcessorConfig {
 
     @NotNull
@@ -26,6 +25,9 @@ public class BedrockProcessorConfig {
 
     @JsonProperty("style_preset")
     private String style_preset;
+
+    @JsonProperty("aws")
+    private AwsAuthenticationOptions aws;
 
     public String getModelId() {
         return modelId;
