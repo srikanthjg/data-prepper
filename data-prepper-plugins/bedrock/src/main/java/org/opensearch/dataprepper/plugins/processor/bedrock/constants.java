@@ -1,6 +1,6 @@
 package org.opensearch.dataprepper.plugins.processor.bedrock;
 
-public class ModelNames {
+public class constants {
     //Embeddings
     static final String TITAN_TEXT_EMBEDDING_V1 = "amazon.titan-embed-text-v1";
     static final String TITAN_IMAGE_EMBEDDING_V1 = "amazon.titan-embed-image-v1";
@@ -13,4 +13,7 @@ public class ModelNames {
     //Image
     static final String STABLE_DIFFUSION = "stability.stable-diffusion-xl";
     static final String TITAN_IMAGE = "amazon.titan-image-generator-v1";
+
+    static final String SYNC_MODE = "sync";
+    static final String ASYNC_MODE = "async";
 }

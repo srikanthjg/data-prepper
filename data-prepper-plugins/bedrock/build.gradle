@@ -10,6 +10,7 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-core'
     implementation 'org.jetbrains.kotlin:kotlin-stdlib-common:1.9.22'
     implementation 'software.amazon.awssdk:bedrockruntime'
+    implementation 'com.amazonaws:aws-java-sdk-bedrock:1.12.724'
     implementation 'software.amazon.awssdk:sts'
     implementation 'org.json:json:20211205'
     implementation 'org.projectlombok:lombok:1.18.22'

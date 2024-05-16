@@ -2,15 +2,13 @@ package org.opensearch.dataprepper.plugins.processor.bedrock;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.opensearch.dataprepper.model.configuration.PipelineModel;
 import org.opensearch.dataprepper.model.event.Event;
-import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.CLAUDE_V2;
-import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.JURASSIC2;
-import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.STABLE_DIFFUSION;
-import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.TITAN_IMAGE;
-import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.TITAN_IMAGE_EMBEDDING_V1;
-import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.TITAN_TEXT_EMBEDDING_V1;
-
+import static org.opensearch.dataprepper.plugins.processor.bedrock.constants.CLAUDE_V2;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.constants.JURASSIC2;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.constants.STABLE_DIFFUSION;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.constants.TITAN_IMAGE;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.constants.TITAN_IMAGE_EMBEDDING_V1;
+import static org.opensearch.dataprepper.plugins.processor.bedrock.constants.TITAN_TEXT_EMBEDDING_V1;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
@@ -20,9 +18,12 @@ import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Random;
 
 
@@ -52,8 +53,8 @@ public class InvokeModel {
 
         String promptTemplate = String.format(
                 "Human: You are a helpful assistant.  Generate a concise and informative answer in less than 100 words, %s " +
-                "Question: %s " +
-                "Assistant:",
+                        "Question: %s " +
+                        "Assistant:",
                 recordEvent.toJsonString(), question);
 
         BedrockRuntimeClient client = BedrockRuntimeClient.builder().region(Region.US_EAST_1).build();
@@ -112,7 +113,7 @@ public class InvokeModel {
         /*
          * The different model providers have individual request and response formats.
          * For the format, ranges, and available style_presets of Stable Diffusion
-         * ModelNames refer to:
+         * constants refer to:
          * https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-stability-diffusion.html
          */
 
@@ -150,7 +151,7 @@ public class InvokeModel {
     public static void invokeTitanImage(Event recordEvent) {
         /*
          * The different model providers have individual request and response formats.
-         * For the format, ranges, and default values for Titan Image ModelNames refer to:
+         * For the format, ranges, and default values for Titan Image constants refer to:
          * https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-
          * image.html
          */
@@ -224,5 +225,64 @@ public class InvokeModel {
         }
 
         recordEvent.put("image_embeddings", embeddings);
+    }
+
+    public static String createJsonPayload(String clientRequestToken, String s3InputUri,
+                                           String jobName, String modelId,
+                                           String s3OutputUri, String roleArn,
+                                           String tagKey, String tagValue) {
+        JSONObject json = new JSONObject()
+                .put("clientRequestToken", clientRequestToken)
+                .put("inputDataConfig", new JSONObject()
+                        .put("s3InputDataConfig", new JSONObject()
+                                .put("s3Uri", s3InputUri)
+                                .put("s3InputFormat", "JSONL")))
+                .put("jobName", jobName)
+                .put("modelId", modelId)
+                .put("outputDataConfig", new JSONObject()
+                        .put("s3OutputDataConfig", new JSONObject()
+                                .put("s3Uri", s3OutputUri)))
+                .put("roleArn", roleArn)
+                .put("tags", new JSONArray()
+                        .put(new JSONObject()
+                                .put("key", tagKey)
+                                .put("value", tagValue)));
+
+        return json.toString(4);  // Pretty print with an indentation of 4 spaces
+    }
+
+    public static void sendPostRequest(String urlString, String jsonPayload) throws Exception {
+        // Define the URL and open a connection
+        URL url = new URL(urlString);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+        // Set the request method to POST
+        connection.setRequestMethod("POST");
+
+        // Set the request headers
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setDoOutput(true);
+
+        // Send the request payload
+        try (OutputStream os = connection.getOutputStream()) {
+            byte[] input = jsonPayload.getBytes(StandardCharsets.UTF_8);
+            os.write(input, 0, input.length);
+        }
+
+        // Get the response code
+        int responseCode = connection.getResponseCode();
+
+        // Read the response from the input stream
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+            StringBuilder response = new StringBuilder();
+            String responseLine;
+            while ((responseLine = br.readLine()) != null) {
+                response.append(responseLine.trim());
+            }
+            System.out.println("Response: " + response);
+        }
+
+        // Close the connection
+        connection.disconnect();
     }
 }
