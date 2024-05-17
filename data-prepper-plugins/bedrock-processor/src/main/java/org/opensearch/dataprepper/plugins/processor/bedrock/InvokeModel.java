@@ -2,6 +2,7 @@ package org.opensearch.dataprepper.plugins.processor.bedrock;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.opensearch.dataprepper.model.configuration.PipelineModel;
 import org.opensearch.dataprepper.model.event.Event;
 import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.CLAUDE_V2;
 import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.JURASSIC2;
@@ -9,6 +10,9 @@ import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.ST
 import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.TITAN_IMAGE;
 import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.TITAN_IMAGE_EMBEDDING_V1;
 import static org.opensearch.dataprepper.plugins.processor.bedrock.ModelNames.TITAN_TEXT_EMBEDDING_V1;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.regions.Region;
@@ -16,6 +20,8 @@ import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Random;
 
@@ -24,6 +30,7 @@ public class InvokeModel {
 
     private static final Random random = new Random();
     private static final long seed = random.nextLong() & 0xFFFFFFFFL;
+    private static final Logger LOG = LoggerFactory.getLogger(InvokeModel.class);
 
     /**
      * Invokes the Anthropic Claude 2 model to run an inference based on the
@@ -41,11 +48,17 @@ public class InvokeModel {
         String claudeModelId = CLAUDE_V2;
 
         // Claude requires you to enclose the prompt as follows:
-        String enclosedPrompt = "Human: " + recordEvent.toJsonString() + "\n\nAssistant:";
+        String question = recordEvent.getMetadata().getAttribute("question").toString();
+
+        String promptTemplate = String.format(
+                "Human: You are a helpful assistant.  Generate a concise and informative answer in less than 100 words, %s " +
+                "Question: %s " +
+                "Assistant:",
+                recordEvent.toJsonString(), question);
 
         BedrockRuntimeClient client = BedrockRuntimeClient.builder().region(Region.US_EAST_1).build();
 
-        String payload = new JSONObject().put("prompt", enclosedPrompt).put("max_tokens_to_sample", 200).put("temperature", 0.5).put("stop_sequences", List.of("\n\nHuman:")).toString();
+        String payload = new JSONObject().put("prompt", promptTemplate).put("max_tokens_to_sample", 200).put("temperature", 0.5).toString();
 
         InvokeModelRequest request = InvokeModelRequest.builder().body(SdkBytes.fromUtf8String(payload)).modelId(claudeModelId).contentType("application/json").accept("application/json").build();
 

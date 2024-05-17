@@ -115,6 +115,23 @@ class AbstractSinkTest {
         abstractSink.shutdown();
     }
 
+    @Test
+    void testSinkReadyWithOutputSync() {
+        final String sinkName = "testSink";
+        final String pipelineName = "pipelineName";
+        MetricsTestUtil.initMetrics();
+        PluginSetting pluginSetting = new PluginSetting(sinkName, Collections.emptyMap());
+        pluginSetting.setPipelineName(pipelineName);
+        AbstractSink<Record<String>> abstractSink = new AbstractSinkImpl(pluginSetting);
+        abstractSink.initialize();
+        assertEquals(abstractSink.isReady(), true);
+        Record record = mock(Record.class);
+        abstractSink.updateLatencyMetrics(Arrays.asList(record));
+        Object returnResponse = abstractSink.outputSync(Arrays.asList(record), false);
+        assertTrue(returnResponse != null);
+        abstractSink.shutdown();
+    }
+
     private static class AbstractEventSinkImpl extends AbstractSink<Record<Event>> {
 
         AbstractEventSinkImpl(PluginSetting pluginSetting) {
@@ -127,6 +144,11 @@ class AbstractSinkTest {
                 Event event = record.getData();
                 event.getEventHandle().release(true);
             }
+        }
+
+        @Override
+        public Object doOutputSync(Collection<Record<Event>> records, boolean isQuery) {
+            return super.doOutputSync(records, isQuery);
         }
 
         @Override

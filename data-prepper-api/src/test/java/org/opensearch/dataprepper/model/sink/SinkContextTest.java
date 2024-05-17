@@ -31,7 +31,7 @@ public class SinkContextTest {
         assertThat(sinkContext.getRoutes(), equalTo(testRoutes));
         assertThat(sinkContext.getIncludeKeys(), equalTo(testIncludeKeys));
         assertThat(sinkContext.getExcludeKeys(), equalTo(testExcludeKeys));
-
+        assertThat(sinkContext.getResponseActions(), equalTo(testResponseActions));
     }
 
     @Test
@@ -42,7 +42,7 @@ public class SinkContextTest {
         assertThat(sinkContext.getRoutes(), equalTo(null));
         assertThat(sinkContext.getIncludeKeys(), equalTo(null));
         assertThat(sinkContext.getExcludeKeys(), equalTo(null));
-
+        assertThat(sinkContext.getResponseActions(), equalTo(null));
     }
 
 }
