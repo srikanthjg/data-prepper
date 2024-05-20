@@ -45,6 +45,8 @@ dependencies {
     testImplementation 'net.bytebuddy:byte-buddy-agent:1.14.12'
     testImplementation testLibs.slf4j.simple
     testImplementation testLibs.mockito.inline
+    compileOnly 'org.projectlombok:lombok:1.18.20'
+    annotationProcessor 'org.projectlombok:lombok:1.18.20'
 }
 
 sourceSets {

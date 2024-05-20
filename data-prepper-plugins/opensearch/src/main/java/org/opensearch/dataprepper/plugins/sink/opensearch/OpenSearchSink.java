@@ -5,6 +5,9 @@
 
 package org.opensearch.dataprepper.plugins.sink.opensearch;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -12,13 +15,18 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Timer;
 import jakarta.json.stream.JsonParser;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.json.JsonpMapper;
+import org.opensearch.client.json.jackson.JacksonJsonpGenerator;
 import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
+import org.opensearch.client.opensearch._types.FieldSort;
 import org.opensearch.client.opensearch._types.SortOptions;
+import org.opensearch.client.opensearch._types.SortOrder;
 import org.opensearch.client.opensearch._types.VersionType;
+import org.opensearch.client.opensearch._types.query_dsl.KnnQuery;
 import org.opensearch.client.opensearch._types.query_dsl.Query;
 import org.opensearch.client.opensearch.core.BulkRequest;
 import org.opensearch.client.opensearch.core.BulkResponse;
@@ -29,6 +37,9 @@ import org.opensearch.client.opensearch.core.bulk.IndexOperation;
 import org.opensearch.client.opensearch.core.bulk.UpdateOperation;
 import org.opensearch.client.opensearch.core.SearchRequest;
 import org.opensearch.client.opensearch.core.SearchResponse;
+import org.opensearch.client.opensearch.core.search.Hit;
+import org.opensearch.client.opensearch.core.search.HitsMetadata;
+import org.opensearch.client.opensearch.core.search.SourceConfig;
 import org.opensearch.client.transport.TransportOptions;
 import org.opensearch.common.unit.ByteSizeUnit;
 import org.opensearch.dataprepper.aws.api.AwsCredentialsSupplier;
@@ -45,6 +56,7 @@ import org.opensearch.dataprepper.model.event.JacksonEvent;
 import org.opensearch.dataprepper.model.event.exceptions.EventKeyNotFoundException;
 import org.opensearch.dataprepper.model.failures.DlqObject;
 import org.opensearch.dataprepper.model.opensearch.OpenSearchBulkActions;
+import org.opensearch.dataprepper.model.plugin.ExtensionPlugin;
 import org.opensearch.dataprepper.model.plugin.InvalidPluginConfigurationException;
 import org.opensearch.dataprepper.model.plugin.PluginConfigObservable;
 import org.opensearch.dataprepper.model.plugin.PluginFactory;
@@ -77,9 +89,12 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
@@ -500,21 +515,29 @@ public class OpenSearchSink extends AbstractSink<Record<Event>> {
 
   @Override
   public Object doOutputSync(final Collection<Record<Event>> records, boolean isQuery) {
-
     if (!isQuery) {
       return processBulkRequest(records);
     }
 
     SearchResponse<ObjectNode> response = (SearchResponse) processQueryRequest(records);
-    List<Record<Event>> updatedRecords = response.hits().hits().stream()
+    final Event queryEvent = records.stream().findFirst().get().getData();
+    final JsonNode queryNode = queryEvent.getJsonNode().get("query");
+    Optional<Query> sourceQuery;
+    if (queryNode != null) {
+      final JsonpMapper jsonpMapper = new JacksonJsonpMapper();
+      final JsonParser jsonParser = jsonpMapper.jsonProvider().createParser(new StringReader(queryNode.toString()));
+      sourceQuery = Optional.of(Query._DESERIALIZER.deserialize(jsonParser, jsonpMapper));
+    } else {
+        sourceQuery = Optional.empty();
+    }
+
+      Collection<Record<Event>> processRecords = response.hits().hits().stream()
             .map(hit -> (Event) JacksonEvent.builder()
                     .withData(hit.source())
-                    .withEventMetadataAttributes(Map.of(DOCUMENT_ID_METADATA_ATTRIBUTE_NAME, hit.id(), INDEX_METADATA_ATTRIBUTE_NAME, hit.index()))
+                    .withEventMetadataAttributes(Map.of("question", !sourceQuery.isEmpty() ? sourceQuery.get().match().query()._get().toString(): ""))
                     .withEventType(EventType.DOCUMENT.toString()).build())
             .collect(Collectors.toList())
-            .stream().map(Record::new).collect(Collectors.toList());
-
-    Collection<Record<Event>> processRecords = updatedRecords;
+            .stream().map(Record::new).collect(Collectors.toList()).subList(0,1);
     for (final Processor processor : response_action_processors) {
       try {
         processRecords = processor.execute(processRecords);
@@ -525,41 +548,77 @@ public class OpenSearchSink extends AbstractSink<Record<Event>> {
       }
     }
 
-    return response;
+    List<Hit> hits = new ArrayList<>(response.hits().hits());
+    final Event event = processRecords.stream().findFirst().get().getData();
+
+    hits.add(new Hit.Builder<SearchExtension>()
+            .source(
+                    SearchExtension.builder()
+                            .answer(event.getJsonNode().get("anthropic.claude-v2_response").toString())
+                            .build()).build());
+    return new SearchResponse.Builder<>()
+            .timedOut(response.timedOut())
+            .took(response.took())
+            .shards(response.shards())
+            .scrollId(response.scrollId())
+            .hits(new HitsMetadata.Builder()
+                    .hits(hits)
+                    .build())
+            .build();
   }
 
   private Object processQueryRequest(final Collection<Record<Event>> records) {
     final Event event = records.stream().findFirst().get().getData();
-    return executeSearchRequest(event);
-//    SearchRequest searchRequest = new SearchRequest();
-//    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-//    searchSourceBuilder.query(
-//            QueryBuilders.wrapperQuery(requestBody)
-//    );
-//    searchSourceBuilder.sort(
-//            event.getJsonNode().get("sort")
-//    );
-//    searchRequest.source(searchSourceBuilder);
-//    searchRequest.indices(event.getMetadata().getAttribute("opensearch_index").toString());
-//    searchRequest.scroll(TimeValue.timeValueMinutes(10));
+    return searchRequestTimer.record(() -> {
+      try {
+        LOG.debug("Sending data to OpenSearch");
+        Query query = null;
+        final JsonpMapper jsonpMapper = new JacksonJsonpMapper();
+        List<SortOptions> sortOptions = new ArrayList<>();
+        final JsonNode queryNode = event.getJsonNode().get("query");
+        final JsonNode sortNode  = event.getJsonNode().get("sort");
+        final JsonNode sourceNode = event.getJsonNode().get("_source");
+        if (queryNode != null) {
+          final JsonNode embedNode = event.getJsonNode().get("embeddings");
+          List<Float> embeddings = new ArrayList<>();
+          for (Object vec: embedNode) {
+            embeddings.add(Float.valueOf(vec.toString()));
+          }
+          query = new Query.Builder()
+                  .knn(new KnnQuery.Builder()
+                          .field("embeddings")
+                          .vector(ArrayUtils.toPrimitive(embeddings.toArray(new Float[]{})))
+                          .k(1)
+                          .build())
+                  .build();
+        }
 
+        if (sortNode != null) {
+          for (Object sort : sortNode) {
+            JsonParser sortQueryJsonParser = jsonpMapper.jsonProvider().createParser(new StringReader(sort.toString()));
+            sortOptions.add(SortOptions._DESERIALIZER.deserialize(sortQueryJsonParser, jsonpMapper));
+          }
+        }
+        SourceConfig sourceConfig = null;
+        if (sourceNode != null) {
+          JsonParser sourceNodeJsonParser = jsonpMapper.jsonProvider().createParser(new StringReader(sourceNode.toString()));
+          sourceConfig = SourceConfig._DESERIALIZER.deserialize(sourceNodeJsonParser, jsonpMapper);
+        }
+        SearchRequest searchRequest = new SearchRequest.Builder()
+                .source(sourceConfig)
+                .index(event.getMetadata().getAttribute("opensearch_index").toString())
+                .query(query)
+                .sort(sortOptions)
+                .build();
 
-
-
-
-//    try {
-//      return restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
-//    } catch (Exception e) {
-//      // TODO: retry for status code 429 of OpenSearchException?
-//      LOG.error("Search request failed due to {}", e.getMessage());
-//    }
-//    // Blank/Dummy response
-//    SearchProfileShardResults profileResults = new SearchProfileShardResults(Collections.emptyMap());
-//    List<Suggest.Suggestion<? extends Suggest.Suggestion.Entry<? extends Suggest.Suggestion.Entry.Option>>> suggestions = new ArrayList();
-//    SearchResponseSections searchResponseSections =  new SearchResponseSections(SearchHits.empty(),
-//            new Aggregations(new ArrayList<>()), new Suggest(suggestions), false, false, profileResults, 0);
-//    return new SearchResponse(searchResponseSections, "scrollId", 1, 1, 0, 1,
-//            new ShardSearchFailure[0], new SearchResponse.Clusters(1, 1, 0));
+        return searchRetryStrategy.executeSearchRequest(searchRequest);
+      } catch (final InterruptedException ex) {
+        LOG.error("Unexpected Interrupt:", ex);
+        bulkRequestErrorsCounter.increment();
+        Thread.currentThread().interrupt();
+        return null;
+      }
+    });
   }
 
   private  BulkResponse processBulkRequest(final Collection<Record<Event>> records) {
@@ -691,37 +750,6 @@ public class OpenSearchSink extends AbstractSink<Record<Event>> {
     final String document = DocumentBuilder.build(event, documentRootKey, sinkContext.getTagsTargetKey(), sinkContext.getIncludeKeys(), sinkContext.getExcludeKeys());
 
     return SerializedJson.fromStringAndOptionals(document, docId, routingValue);
-  }
-
-  private SearchResponse executeSearchRequest(final Event event) {
-    return searchRequestTimer.record(() -> {
-      try {
-        LOG.debug("Sending data to OpenSearch");
-        final JsonpMapper jsonpMapper = new JacksonJsonpMapper();
-        final JsonParser jsonParser = jsonpMapper.jsonProvider().createParser(new StringReader(event.getJsonNode().get("query").toString()));
-
-        List<SortOptions> sortOptions = new ArrayList<>();
-        if (event.getJsonNode().get("sort") != null) {
-          for (Object sort : event.getJsonNode().get("sort")) {
-            JsonParser sortQueryJsonParser = jsonpMapper.jsonProvider().createParser(new StringReader(sort.toString()));
-            sortOptions.add(SortOptions._DESERIALIZER.deserialize(sortQueryJsonParser, jsonpMapper));
-          }
-        }
-
-        SearchRequest searchRequest = new SearchRequest.Builder()
-                .index(event.getMetadata().getAttribute("opensearch_index").toString())
-                .query(Query._DESERIALIZER.deserialize(jsonParser, jsonpMapper))
-                .sort(sortOptions)
-                .build();
-
-        return searchRetryStrategy.executeSearchRequest(searchRequest);
-      } catch (final InterruptedException ex) {
-        LOG.error("Unexpected Interrupt:", ex);
-        bulkRequestErrorsCounter.increment();
-        Thread.currentThread().interrupt();
-        return null;
-      }
-    });
   }
 
   private BulkResponse executeBulkRequest(AccumulatingBulkRequest accumulatingBulkRequest) {
