@@ -1,0 +1,12 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+dependencies {
+    implementation project(':data-prepper-api')
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation platform('software.amazon.awssdk:bom:2.21.1')
+    implementation 'software.amazon.awssdk:translate'
+    testImplementation project(':data-prepper-test-common')
+}
