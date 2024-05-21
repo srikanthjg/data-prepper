@@ -1,0 +1,35 @@
+"<<pipeline-name>>-ingestion":
+  workers: "<<$.<<pipeline-name>>.workers>>"
+  delay: "<<$.<<pipeline-name>>.delay>>"
+  routes: "<<$.<<pipeline-name>>.routes>>"
+  buffer: "<<$.<<pipeline-name>>.buffer>>"
+  source: "<<$.<<pipeline-name>>.source>>"
+  processor: "<<$.<<pipeline-name>>.processor>>"
+  sink: "<<$.<<pipeline-name>>.sink>>"
+
+"<<pipeline-name>>-query":
+  workers: "<<$.<<pipeline-name>>.workers>>"
+  delay: "<<$.<<pipeline-name>>.delay>>"
+  buffer: "<<$.<<pipeline-name>>.buffer>>"
+  routes: "<<$.<<pipeline-name>>.routes>>"
+  source:
+    opensearch_api:
+      ssl: false
+      port: 4992
+      path_prefix: "/opensearch"
+  sink:
+    - opensearch:
+        hosts: [ "https://g33jzziefmc977bz6w4i.us-east-1.aoss.amazonaws.com" ]
+        insecure: true
+        index: "${getMetadata(\"opensearch_index\")}"
+        action: "${getMetadata(\"opensearch_action\")}"
+        aws:
+          sts_role_arn: "arn:aws:iam::176893235612:role/Admin"
+          region: "us-east-1"
+          serverless: true
+        response_action:
+          - bedrock:
+              model: "anthropic.claude-v2"
+          - translate:
+              source_language: "en"
+              target_language: "fr"

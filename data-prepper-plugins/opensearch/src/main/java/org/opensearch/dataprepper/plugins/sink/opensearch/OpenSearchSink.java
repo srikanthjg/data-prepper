@@ -275,12 +275,14 @@ public class OpenSearchSink extends AbstractSink<Record<Event>> {
       dlqWriter = potentialDlq.isPresent() ? potentialDlq.get() : null;
     }
 
-    sinkContext.getResponseActions().stream().forEach(p -> {
-      final PluginSetting dlqPluginSetting = new PluginSetting(p.getPluginName(), p.getPluginSettings());
-      dlqPluginSetting.setPipelineName(pluginSetting.getPipelineName());
-      response_action_processors.add(pluginFactory.loadPlugin(Processor.class, dlqPluginSetting));
-      }
-    );
+    if(sinkContext.getResponseActions()!=null) {
+      sinkContext.getResponseActions().stream().forEach(p -> {
+                final PluginSetting dlqPluginSetting = new PluginSetting(p.getPluginName(), p.getPluginSettings());
+                dlqPluginSetting.setPipelineName(pluginSetting.getPipelineName());
+                response_action_processors.add(pluginFactory.loadPlugin(Processor.class, dlqPluginSetting));
+              }
+      );
+    }
 
     // Attempt to update the serverless network policy if required argument are given.
     maybeUpdateServerlessNetworkPolicy();

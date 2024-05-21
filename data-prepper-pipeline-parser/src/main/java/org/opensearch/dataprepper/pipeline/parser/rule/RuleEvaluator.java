@@ -55,18 +55,49 @@ public class RuleEvaluator {
      */
     private RuleEvaluatorResult isDocDBSource(PipelinesDataFlowModel pipelinesModel) {
 
-        List<String> plugins = List.of("opensearch_api", "documentdb");
-
-//        String pluginRulesPath = transformersFactory.getPluginRuleFileLocation(PLUGIN_NAME);
-//        File ruleFile = new File(pluginRulesPath);
-//        LOG.info("Checking rule path {}",ruleFile.getAbsolutePath());
+        List<String> plugins = List.of("opensearch_api", "documentdb","bedrock");
 
         Map<String, PipelineModel> pipelines = pipelinesModel.getPipelines();
+
+        //TODO
         for (String pluginName: plugins) {
             for (Map.Entry<String, PipelineModel> entry : pipelines.entrySet()) {
                 try {
                     String pipelineJson = OBJECT_MAPPER.writeValueAsString(entry);
-                    if (evaluate(pipelineJson, pluginName)) {
+                    if(pipelineJson.contains("sync")){
+                        InputStream templateStream = transformersFactory.getPluginTemplateFileStream("bedrock-sync");
+                        PipelineTemplateModel templateModel = yamlMapper.readValue(templateStream,
+                                PipelineTemplateModel.class);
+                        LOG.info("Template is chosen for {}", pluginName);
+
+                        return RuleEvaluatorResult.builder()
+                                .withEvaluatedResult(true)
+                                .withPipelineTemplateModel(templateModel)
+                                .withPipelineName(entry.getKey())
+                                .build();
+                    } else if( pipelineJson.contains("async")){
+                        InputStream templateStream = transformersFactory.getPluginTemplateFileStream("bedrock-async");
+                        PipelineTemplateModel templateModel = yamlMapper.readValue(templateStream,
+                                PipelineTemplateModel.class);
+                        LOG.info("Template is chosen for {}", pluginName);
+
+                        return RuleEvaluatorResult.builder()
+                                .withEvaluatedResult(true)
+                                .withPipelineTemplateModel(templateModel)
+                                .withPipelineName(entry.getKey())
+                                .build();
+                    } else if( pipelineJson.contains("translate")) {
+                        InputStream templateStream = transformersFactory.getPluginTemplateFileStream("bedrock-translate");
+                        PipelineTemplateModel templateModel = yamlMapper.readValue(templateStream,
+                                PipelineTemplateModel.class);
+                        LOG.info("Template is chosen for {}", pluginName);
+
+                        return RuleEvaluatorResult.builder()
+                                .withEvaluatedResult(true)
+                                .withPipelineTemplateModel(templateModel)
+                                .withPipelineName(entry.getKey())
+                                .build();
+                    }else if(evaluate(pipelineJson, pluginName)) {
                         LOG.info("Rule for {} is evaluated true for pipelineJson {}", pluginName, pipelineJson);
 
                         InputStream templateStream = transformersFactory.getPluginTemplateFileStream(pluginName);
@@ -79,6 +110,8 @@ public class RuleEvaluator {
                                 .withPipelineTemplateModel(templateModel)
                                 .withPipelineName(entry.getKey())
                                 .build();
+                    } else{
+                        LOG.warn("invalid pipeline json transformation");
                     }
                 } catch (FileNotFoundException e) {
                     LOG.error("Template File Not Found for {}", pluginName);

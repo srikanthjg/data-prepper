@@ -117,7 +117,6 @@ public class SinkModel extends PluginModel {
         @JsonProperty("exclude_keys")
         private final List<String> excludeKeys;
 
-        @JsonInclude(JsonInclude.Include.NON_EMPTY)
         @JsonProperty("response_actions")
         private final List<PluginModel> response_actions;
 
