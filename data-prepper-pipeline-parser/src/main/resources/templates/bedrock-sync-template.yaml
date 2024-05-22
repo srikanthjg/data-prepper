@@ -20,6 +20,7 @@
   source:
     opensearch_api:
       path_prefix: "/opensearch"
+      port: 21890
   processor: "<<$.<<pipeline-name>>.processor>>"
   sink:
     - opensearch:
