@@ -59,7 +59,6 @@ public class RuleEvaluator {
 
         Map<String, PipelineModel> pipelines = pipelinesModel.getPipelines();
 
-        //TODO
         for (String pluginName: plugins) {
             for (Map.Entry<String, PipelineModel> entry : pipelines.entrySet()) {
                 try {

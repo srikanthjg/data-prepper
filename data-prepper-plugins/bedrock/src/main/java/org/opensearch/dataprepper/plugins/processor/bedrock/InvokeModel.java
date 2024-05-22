@@ -199,6 +199,7 @@ public class InvokeModel {
         }
 
         recordEvent.put("embeddings", embeddings);
+//        LOG.info(recordEvent.toJsonString());
     }
 
     public static void invokeTitanImageEmbed(Event recordEvent) {

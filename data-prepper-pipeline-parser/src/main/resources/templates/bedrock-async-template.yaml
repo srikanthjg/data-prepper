@@ -1,42 +1,33 @@
 "<<pipeline-name>>-ingestion":
   workers: "<<$.<<pipeline-name>>.workers>>"
   delay: "<<$.<<pipeline-name>>.delay>>"
-  buffer: "<<$.<<pipeline-name>>.buffer>>"
   routes: "<<$.<<pipeline-name>>.routes>>"
+  buffer: "<<$.<<pipeline-name>>.buffer>>"
   source: "<<$.<<pipeline-name>>.source>>"
   processor: "<<$.<<pipeline-name>>.processor>>"
-  sink: "<<$.<<pipeline-name>>.sink>>"
+  sink:
+    - opensearch:
+        hosts: ["<<$.<<pipeline-name>>.sink[0].hosts[0]>>"]
+        insecure: true
+        index: "<<$.<<pipeline-name>>.sink[0].index>>"
+        aws: "<<$.<<pipeline-name>>.sink[0].aws>>"
 
 "<<pipeline-name>>-query":
-    workers: "<<$.<<pipeline-name>>.workers>>"
-    delay: "<<$.<<pipeline-name>>.delay>>"
-    buffer: "<<$.<<pipeline-name>>.buffer>>"
-    routes: "<<$.<<pipeline-name>>.routes>>"
-    source:
-      opensearch_api:
-        ssl: false
-        port: 4992
-        path_prefix: "/opensearch"
-        async: true
-    sink: "<<$.<<pipeline-name>>.sink>>"
-
-"<<pipeline-name>>-s3":
   workers: "<<$.<<pipeline-name>>.workers>>"
   delay: "<<$.<<pipeline-name>>.delay>>"
   buffer: "<<$.<<pipeline-name>>.buffer>>"
   routes: "<<$.<<pipeline-name>>.routes>>"
   source:
-    s3:
-      codec:
-      compression: "none"
-      aws:
-        region: "us-east-1"
-        sts_role_arn: "arn:aws:iam::123456789012:role/Admin-Role"
-      acknowledgments: true
-      scan:
-        buckets:
-          - bucket:
-              name: "<<$.<<pipeline-name>>.processor[0].>>"
-  sink: "<<$.<<pipeline-name>>.sink>>"
-
+    opensearch_api:
+      ssl: false
+      port: 4992
+      path_prefix: "/opensearch"
+  sink:
+    - opensearch:
+        hosts: ["<<$.<<pipeline-name>>.sink[0].hosts[0]>>"]
+        insecure: true
+        index: "${getMetadata(\"opensearch_index\")}"
+        action: "${getMetadata(\"opensearch_action\")}"
+        aws: "<<$.<<pipeline-name>>.sink[0].aws>>"
+        response_actions: "<<$.<<pipeline-name>>.sink[0].response_actions>>"
 
