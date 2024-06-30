@@ -14,8 +14,8 @@ import org.opensearch.dataprepper.plugins.lambda.common.config.BatchOptions;
 
 public class LambdaProcessorConfig {
 
-    public static final String SYNCHRONOUS_MODE = "synchronous";
-    public static final String ASYNCHRONOUS_MODE = "asynchronous";
+    public static final String SYNCHRONOUS_MODE = "RequestResponse";
+    public static final String ASYNCHRONOUS_MODE = "Event";
     private static final int DEFAULT_CONNECTION_RETRIES = 3;
 
     @JsonProperty("aws")
