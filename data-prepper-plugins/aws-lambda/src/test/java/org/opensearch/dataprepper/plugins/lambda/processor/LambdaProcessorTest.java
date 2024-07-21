@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -13,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -25,7 +28,8 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.opensearch.dataprepper.aws.api.AwsCredentialsSupplier;
-import org.opensearch.dataprepper.model.configuration.PluginSetting;
+import org.opensearch.dataprepper.expression.ExpressionEvaluator;
+import org.opensearch.dataprepper.metrics.PluginMetrics;
 import org.opensearch.dataprepper.model.event.Event;
 import org.opensearch.dataprepper.model.event.JacksonEvent;
 import org.opensearch.dataprepper.model.record.Record;
@@ -35,6 +39,11 @@ import org.opensearch.dataprepper.plugins.lambda.common.accumlator.BufferFactory
 import org.opensearch.dataprepper.plugins.lambda.common.config.AwsAuthenticationOptions;
 import org.opensearch.dataprepper.plugins.lambda.common.config.BatchOptions;
 import org.opensearch.dataprepper.plugins.lambda.common.config.ThresholdOptions;
+import static org.opensearch.dataprepper.plugins.lambda.processor.LambdaProcessor.LAMBDA_LATENCY_METRIC;
+import static org.opensearch.dataprepper.plugins.lambda.processor.LambdaProcessor.NUMBER_OF_RECORDS_FLUSHED_TO_LAMBDA_FAILED;
+import static org.opensearch.dataprepper.plugins.lambda.processor.LambdaProcessor.NUMBER_OF_RECORDS_FLUSHED_TO_LAMBDA_SUCCESS;
+import static org.opensearch.dataprepper.plugins.lambda.processor.LambdaProcessor.REQUEST_PAYLOAD_SIZE;
+import static org.opensearch.dataprepper.plugins.lambda.processor.LambdaProcessor.RESPONSE_PAYLOAD_SIZE;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.lambda.LambdaClient;
@@ -47,6 +56,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 @ExtendWith(MockitoExtension.class)
 public class LambdaProcessorTest {
@@ -56,8 +66,14 @@ public class LambdaProcessorTest {
     private static MockedStatic<LambdaClientFactory> lambdaClientFactoryMockedStatic;
     private final ObjectMapper objectMapper = new ObjectMapper(new YAMLFactory().enable(YAMLGenerator.Feature.USE_PLATFORM_LINE_BREAKS));
 
+//    @Mock
+//    private PluginSetting pluginSetting;
+
     @Mock
-    private PluginSetting pluginSetting;
+    private PluginMetrics pluginMetrics;
+
+    @Mock
+    private ExpressionEvaluator expressionEvaluator;
 
     @Mock
     private LambdaProcessorConfig lambdaProcessorConfig;
@@ -74,8 +90,26 @@ public class LambdaProcessorTest {
     @Mock
     private Buffer buffer;
 
+    @Mock
+    private Counter numberOfRecordsSuccessCounter;
+
+    @Mock
+    private Counter numberOfRecordsFailedCounter;
+
+    @Mock
+    private Counter numberOfRecordsDroppedCounter;
+
+    @Mock
+    private Timer lambdaLatencyMetric;
+
+    @Mock
+    private AtomicLong requestPayload;
+
+    @Mock
+    private AtomicLong responsePayload;
+
     private LambdaProcessor createObjectUnderTest() {
-        return new LambdaProcessor(pluginSetting, lambdaProcessorConfig, awsCredentialsSupplier);
+        return new LambdaProcessor(pluginMetrics, lambdaProcessorConfig, awsCredentialsSupplier, expressionEvaluator);
     }
 
     @BeforeEach
@@ -88,7 +122,7 @@ public class LambdaProcessorTest {
 
         lenient().when(lambdaProcessorConfig.getFunctionName()).thenReturn("test-function1");
         lenient().when(lambdaProcessorConfig.getMaxConnectionRetries()).thenReturn(3);
-        lenient().when(lambdaProcessorConfig.getMode()).thenReturn("synchronous");
+        lenient().when(lambdaProcessorConfig.getMode()).thenReturn("requestresponse");
 
         lenient().when(thresholdOptions.getEventCount()).thenReturn(10);
         lenient().when(thresholdOptions.getMaximumSize()).thenReturn(ByteCount.ofBytes(6));
@@ -98,11 +132,14 @@ public class LambdaProcessorTest {
         lenient().when(batchOptions.getBatchKey()).thenReturn("key");
         lenient().when(lambdaProcessorConfig.getBatchOptions()).thenReturn(batchOptions);
 
-        when(pluginSetting.getName()).thenReturn(PROCESSOR_PLUGIN_NAME);
-        when(pluginSetting.getPipelineName()).thenReturn(PROCESSOR_PIPELINE_NAME);
-
         lenient().when(lambdaProcessorConfig.getAwsAuthenticationOptions()).thenReturn(awsAuthenticationOptions);
         lenient().when(awsAuthenticationOptions.getAwsRegion()).thenReturn(Region.of("test-region"));
+
+        lenient().when(pluginMetrics.counter(NUMBER_OF_RECORDS_FLUSHED_TO_LAMBDA_SUCCESS)).thenReturn(numberOfRecordsDroppedCounter);
+        lenient().when(pluginMetrics.counter(NUMBER_OF_RECORDS_FLUSHED_TO_LAMBDA_FAILED)).thenReturn(numberOfRecordsFailedCounter);
+        lenient().when(pluginMetrics.timer(LAMBDA_LATENCY_METRIC)).thenReturn(lambdaLatencyMetric);
+        lenient().when(pluginMetrics.gauge(eq(REQUEST_PAYLOAD_SIZE), any(AtomicLong.class))).thenReturn(requestPayload);
+        lenient().when(pluginMetrics.gauge(eq(RESPONSE_PAYLOAD_SIZE), any(AtomicLong.class))).thenReturn(responsePayload);
 
         InvokeResponse resp = InvokeResponse.builder().statusCode(200).payload(SdkBytes.fromUtf8String(RESPONSE_PAYLOAD)).build();
         lambdaClientFactoryMockedStatic = Mockito.mockStatic(LambdaClientFactory.class);
@@ -190,7 +227,7 @@ public class LambdaProcessorTest {
     }
 
     @Test
-    public void testDoExecute_withNon200StatusCode() {
+    public void testDoExecute_withNonSuccessfulStatusCode() {
         InvokeResponse response = InvokeResponse.builder().statusCode(500).payload(SdkBytes.fromUtf8String(RESPONSE_PAYLOAD)).build();
         lenient().when(lambdaClient.invoke(any(InvokeRequest.class))).thenReturn(response);
 
@@ -203,8 +240,11 @@ public class LambdaProcessorTest {
 
         verify(lambdaClient, times(1)).invoke(any(InvokeRequest.class));
 
-        //event should remain unmodified
-        assertEquals(records.get(0).getData(), resultRecords.get(0).getData());
+        //event should be dropped on failure
+        assertEquals(resultRecords.size(), 0);
+        verify(numberOfRecordsFailedCounter, times(1)).increment(1);
+        //check if buffer is reset
+        assertEquals(buffer.getSize(), 0);
     }
 
     @Test
@@ -223,7 +263,7 @@ public class LambdaProcessorTest {
 
     @Test
     public void testDoExecute_WithConfig() throws JsonProcessingException {
-        final String config = "        function_name: test_function\n" + "        mode: synchronous\n" + "        aws:\n" + "          region: us-east-1\n" + "          sts_role_arn: arn:aws:iam::524239988912:role/app-test\n" + "          sts_header_overrides: {\"test\":\"test\"}\n" + "        max_retries: 3\n";
+        final String config = "        function_name: test_function\n" + "        mode: requestresponse\n" + "        aws:\n" + "          region: us-east-1\n" + "          sts_role_arn: arn:aws:iam::524239988912:role/app-test\n" + "          sts_header_overrides: {\"test\":\"test\"}\n" + "        max_retries: 3\n";
 
         this.lambdaProcessorConfig = objectMapper.readValue(config, LambdaProcessorConfig.class);
 

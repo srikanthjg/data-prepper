@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import io.micrometer.core.instrument.Counter;
-import static junit.framework.TestCase.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.opensearch.dataprepper.aws.api.AwsCredentialsSupplier;
+import org.opensearch.dataprepper.expression.ExpressionEvaluator;
 import org.opensearch.dataprepper.metrics.PluginMetrics;
 import org.opensearch.dataprepper.model.configuration.PluginSetting;
 import org.opensearch.dataprepper.model.event.Event;
@@ -66,6 +67,9 @@ public class LambdaProcessorServiceIT {
     private Counter numberOfRecordsSuccessCounter;
     @Mock
     private Counter numberOfRecordsFailedCounter;
+    @Mock
+    private ExpressionEvaluator expressionEvaluator;
+
     private final ObjectMapper objectMapper = new ObjectMapper(new YAMLFactory().enable(YAMLGenerator.Feature.USE_PLATFORM_LINE_BREAKS));
 
 
@@ -88,8 +92,6 @@ public class LambdaProcessorServiceIT {
                 thenReturn(numberOfRecordsSuccessCounter);
         when(pluginMetrics.counter(LambdaProcessor.NUMBER_OF_RECORDS_FLUSHED_TO_LAMBDA_FAILED)).
                 thenReturn(numberOfRecordsFailedCounter);
-        when(pluginSetting.getName()).thenReturn("test");
-        when(pluginSetting.getPipelineName()).thenReturn("test-pipeline");
     }
 
 
@@ -101,11 +103,11 @@ public class LambdaProcessorServiceIT {
     public LambdaProcessor createObjectUnderTest(final String config) throws JsonProcessingException {
 
         final LambdaProcessorConfig lambdaProcessorConfig = objectMapper.readValue(config, LambdaProcessorConfig.class);
-        return new LambdaProcessor(pluginSetting,lambdaProcessorConfig,awsCredentialsSupplier);
+        return new LambdaProcessor(pluginMetrics,lambdaProcessorConfig,awsCredentialsSupplier,expressionEvaluator);
     }
 
     public LambdaProcessor createObjectUnderTest(LambdaProcessorConfig lambdaSinkConfig) throws JsonProcessingException {
-        return new LambdaProcessor(pluginSetting,lambdaSinkConfig,awsCredentialsSupplier);
+        return new LambdaProcessor(pluginMetrics,lambdaSinkConfig,awsCredentialsSupplier,expressionEvaluator);
     }
 
 

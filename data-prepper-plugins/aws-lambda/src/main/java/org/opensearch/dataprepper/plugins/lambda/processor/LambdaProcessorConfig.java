@@ -38,6 +38,9 @@ public class LambdaProcessorConfig {
     @JsonProperty("batch")
     private BatchOptions batchOptions;
 
+    @JsonProperty("lambda_when")
+    private String whenCondition;
+
     public AwsAuthenticationOptions getAwsAuthenticationOptions() {
         return awsAuthenticationOptions;
     }
@@ -54,4 +57,7 @@ public class LambdaProcessorConfig {
 
     public String getMode(){return mode;}
 
+    public String getWhenCondition() {
+        return whenCondition;
+    }
 }
