@@ -1,0 +1,2 @@
+apply_when:
+  - "$..aws_lambda[?(@.mode == 'event')]"

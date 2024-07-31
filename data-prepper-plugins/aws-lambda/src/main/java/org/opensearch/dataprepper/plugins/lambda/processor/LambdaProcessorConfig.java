@@ -35,6 +35,9 @@ public class LambdaProcessorConfig {
     @JsonProperty("mode")
     private String mode = SYNCHRONOUS_MODE;
 
+    @JsonProperty("s3_bucket")
+    private String s3Bucket;
+
     @JsonProperty("batch")
     private BatchOptions batchOptions;
 

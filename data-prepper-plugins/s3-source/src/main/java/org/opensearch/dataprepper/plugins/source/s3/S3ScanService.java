@@ -30,7 +30,6 @@ public class S3ScanService {
     private final List<S3ScanBucketOptions> s3ScanBucketOptions;
     private final S3ClientBuilderFactory s3ClientBuilderFactory;
     private final LocalDateTime endDateTime;
-
     private final LocalDateTime startDateTime;
     private final Duration range;
     private final S3ObjectHandler s3ObjectHandler;
@@ -115,6 +114,7 @@ public class S3ScanService {
                 .setEndDateTime(endDateTime)
                 .setRange(range)
                 .setBucketOption(scanBucketOptions.getS3ScanBucketOption())
+                        .set
                 .build());
     }
 }

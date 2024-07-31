@@ -35,6 +35,8 @@ public class RuleEvaluator {
     private static final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
     private final TransformersFactory transformersFactory;
     private String PLUGIN_NAME = null;
+    List<String> sourceTranformablePlugins = List.of("documentdb");
+    List<String> processorTranformablePlugins = List.of("aws_lambda");
 
     public RuleEvaluator(TransformersFactory transformersFactory) {
         this.transformersFactory = transformersFactory;

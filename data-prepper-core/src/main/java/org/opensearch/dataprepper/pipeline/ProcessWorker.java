@@ -131,6 +131,7 @@ public class ProcessWorker implements Runnable {
                 inputEvents = ((List<Record<Event>>) records).stream().map(Record::getData).collect(Collectors.toList());
             }
 
+
             try {
                 records = processor.execute(records);
                 if (inputEvents != null) {

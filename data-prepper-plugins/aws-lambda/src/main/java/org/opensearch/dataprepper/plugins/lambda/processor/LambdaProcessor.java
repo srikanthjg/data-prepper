@@ -113,7 +113,9 @@ public class LambdaProcessor extends AbstractProcessor<Record<Event>, Record<Eve
         // TODO - Support for Async mode to be added.
         if (mode != null && mode.equalsIgnoreCase(LambdaProcessorConfig.SYNCHRONOUS_MODE)) {
             invocationType = SYNC_INVOCATION_TYPE;
-        } else {
+        } else if (mode != null && mode.equalsIgnoreCase(LambdaProcessorConfig.ASYNCHRONOUS_MODE)){
+            invocationType = ASYNC_INVOCATION_TYPE;
+        }else {
             throw new RuntimeException("mode has to be synchronous or asynchronous");
         }
 
@@ -138,8 +140,13 @@ public class LambdaProcessor extends AbstractProcessor<Record<Event>, Record<Eve
             return records;
         }
 
+        List<Record<Event>> resultRecords;
         //lambda mutates event
-        List<Record<Event>> resultRecords = new ArrayList<>();
+        if (invocationType.equals(SYNC_INVOCATION_TYPE)) {
+             resultRecords = new ArrayList<>();
+        } else{
+            resultRecords = null;
+        }
 
         for (Record<Event> record : records) {
             final Event event = record.getData();
@@ -169,7 +176,11 @@ public class LambdaProcessor extends AbstractProcessor<Record<Event>, Record<Eve
                 }
             }
         }
-        return resultRecords;
+        if(invocationType.equals(SYNC_INVOCATION_TYPE)) {
+            return resultRecords;
+        }else{
+            return records;
+        }
     }
 
     @Override
@@ -207,7 +218,9 @@ public class LambdaProcessor extends AbstractProcessor<Record<Event>, Record<Eve
 
                 InvokeResponse lambdaResponse = lambdaResult.getLambdaResponse();
                 Event lambdaEvent = convertLambdaResponseToEvent(lambdaResponse);
-                resultRecords.add(new Record<>(lambdaEvent));
+                if(resultRecords!=null) {
+                    resultRecords.add(new Record<>(lambdaEvent));
+                }
                 //reset buffer after flush
                 currentBuffer = bufferFactory.getBuffer(lambdaClient, functionName, invocationType);
             } else {

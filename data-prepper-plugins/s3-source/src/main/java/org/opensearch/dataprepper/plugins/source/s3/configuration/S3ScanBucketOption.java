@@ -42,6 +42,9 @@ public class S3ScanBucketOption {
     @JsonProperty("filter")
     private S3ScanKeyPathOption s3ScanFilter;
 
+    @JsonProperty("next_node")
+    private String nextNode;
+
     @AssertTrue(message = "At most two options from start_time, end_time and range can be specified at the same time")
     public boolean hasValidTimeOptions() {
         return Stream.of(startTime, endTime, range).filter(Objects::nonNull).count() < 3;
@@ -57,6 +60,10 @@ public class S3ScanBucketOption {
             return name.substring(S3_PREFIX.length());
         }
         return name;
+    }
+
+    public String getNextNode(){
+        return nextNode;
     }
 
     public LocalDateTime getStartTime() {

@@ -7,6 +7,7 @@ package org.opensearch.dataprepper.pipeline.parser.rule;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import org.opensearch.dataprepper.pipeline.parser.model.PipelineTransformationModel;
 import org.opensearch.dataprepper.pipeline.parser.transformer.PipelineTemplateModel;
 
 @Builder(setterPrefix = "with")
@@ -19,6 +20,8 @@ public class RuleEvaluatorResult {
     private String pipelineName;
 
     private PipelineTemplateModel pipelineTemplateModel;
+
+    private PipelineTransformationModel pipelineTransformationModel;
 
     public RuleEvaluatorResult() {
 

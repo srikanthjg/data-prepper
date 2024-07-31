@@ -10,6 +10,7 @@ import org.opensearch.dataprepper.model.acknowledgements.AcknowledgementSet;
 import org.opensearch.dataprepper.model.buffer.Buffer;
 import org.opensearch.dataprepper.model.codec.InputCodec;
 import org.opensearch.dataprepper.model.event.Event;
+import org.opensearch.dataprepper.model.event.EventMetadata;
 import org.opensearch.dataprepper.model.record.Record;
 import org.opensearch.dataprepper.model.source.coordinator.SourceCoordinator;
 import org.opensearch.dataprepper.plugins.codec.CompressionOption;
@@ -98,7 +99,13 @@ class S3ObjectWorker implements S3ObjectHandler {
 
             codec.parse(inputFile, fileCompressionOption.getDecompressionEngine(), record -> {
                 try {
-                    eventConsumer.accept(record.getData(), s3ObjectReference);
+                    Event event = record.getData();
+                    EventMetadata eventMetadata = event.getMetadata();
+
+                    if(nextNode != null) {
+                        eventMetadata.setAttribute(nextNode);
+                    }
+                    eventConsumer.accept(event, s3ObjectReference);
                     // Always add record to acknowledgementSet before adding to
                     // buffer because another thread may take and process
                     // buffer contents before the event record is added
