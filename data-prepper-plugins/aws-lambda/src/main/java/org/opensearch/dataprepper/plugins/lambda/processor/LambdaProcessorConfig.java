@@ -44,6 +44,11 @@ public class LambdaProcessorConfig {
     @JsonProperty("lambda_when")
     private String whenCondition;
 
+    @JsonProperty("id")
+    private String id;
+
+    public String getId(){return id;}
+
     public AwsAuthenticationOptions getAwsAuthenticationOptions() {
         return awsAuthenticationOptions;
     }

@@ -101,10 +101,10 @@ class S3ObjectWorker implements S3ObjectHandler {
                 try {
                     Event event = record.getData();
                     EventMetadata eventMetadata = event.getMetadata();
-
-                    if(nextNode != null) {
-                        eventMetadata.setAttribute(nextNode);
-                    }
+                    //Should be per bucket - TODO
+//                    if(nextNode != null) {
+//                        eventMetadata.setAttribute(nextNode);
+//                    }
                     eventConsumer.accept(event, s3ObjectReference);
                     // Always add record to acknowledgementSet before adding to
                     // buffer because another thread may take and process

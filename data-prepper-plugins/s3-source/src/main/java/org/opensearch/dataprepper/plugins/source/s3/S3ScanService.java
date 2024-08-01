@@ -114,7 +114,7 @@ public class S3ScanService {
                 .setEndDateTime(endDateTime)
                 .setRange(range)
                 .setBucketOption(scanBucketOptions.getS3ScanBucketOption())
-                        .set
+//                        .set
                 .build());
     }
 }

@@ -127,7 +127,12 @@ public class DynamicConfigTransformer implements PipelineConfigurationTransforme
                     pipelines.get(pipelineNameThatNeedsTransformation));
             String pipelineJson = objectMapper.writeValueAsString(pipelineMap);
 
-            String templateJsonStringWithPipelinePlaceholder = objectMapper.writeValueAsString(templateModel);
+            String templateJsonStringWithPipelinePlaceholder1 = objectMapper.writeValueAsString(templateModel);
+
+
+            //TODO
+            String templateJsonStringWithPipelinePlaceholder = modifyTemplateJson(templateJsonStringWithPipelinePlaceholder1);
+
 
             //Replace pipeline name placeholder with pipelineNameThatNeedsTransformation
             String templateJsonString = replaceTemplatePipelineName(templateJsonStringWithPipelinePlaceholder,
@@ -172,6 +177,48 @@ public class DynamicConfigTransformer implements PipelineConfigurationTransforme
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /*
+     * Include buckets for all transformable plugins,
+     * add next_node attribute and populate them
+     */
+    private String modifyTemplateJson(String templateJson) {
+        String modifiedTemplateJson = null;
+        String jsonPtrExprForBucketsInScanPipeline = "/templatePipelines/<<pipeline-name>>-s3/source/s3/scan/buckets";
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode rootNode = null;
+        try {
+            rootNode = objectMapper.readTree(templateJson);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
+        // Navigate to the buckets array using JSON Path
+        JsonNode bucketsNode = rootNode.at(jsonPtrExprForBucketsInScanPipeline);
+        if (bucketsNode.isArray()) {
+            ArrayNode bucketsArray = (ArrayNode) bucketsNode;
+
+            //TODO
+            // Create a new bucket entry
+            ObjectNode newBucket = objectMapper.createObjectNode();
+            ObjectNode bucketDetails = objectMapper.createObjectNode();
+            bucketDetails.put("name", "new-bucket-name");
+            bucketDetails.put("next_node", "next-node-name");
+
+            newBucket.set("bucket", bucketDetails);
+
+            // Add the new bucket entry to the buckets array
+            bucketsArray.add(newBucket);
+
+            //Print the updated JSON
+            try {
+                modifiedTemplateJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(rootNode);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return modifiedTemplateJson;
     }
 
     private void checkForSubPipelines(PipelinesDataFlowModel preTransformedPipelinesDataFlowModel,

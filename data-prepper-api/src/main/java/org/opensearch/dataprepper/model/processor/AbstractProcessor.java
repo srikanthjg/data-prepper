@@ -24,6 +24,7 @@ import java.util.Map;
 public abstract class AbstractProcessor<InputRecord extends Record<?>, OutputRecord extends Record<?>> implements
         Processor<InputRecord, OutputRecord> {
 
+    public static final String METADATA_KEY_NEXT_NODE = "next_node";
     protected final PluginMetrics pluginMetrics;
     private final Counter recordsInCounter;
     private final Counter recordsOutCounter;
@@ -56,27 +57,25 @@ public abstract class AbstractProcessor<InputRecord extends Record<?>, OutputRec
     @Override
     public Collection<OutputRecord> execute(Collection<InputRecord> records) {
         recordsInCounter.increment(records.size());
-        final String METADATA_KEY_TO_NODE = "to_node";
 
         Boolean isValidNode = false;
-        String nodeID = null;
+        String currentNodeID = String.valueOf(pluginSetting.getSettings().get("id"));
 
-        //check if right node to start execution chain
+        // Check if right node to start execution chain
+        // Assumption: all events of records have the same metadata.
         for (InputRecord record : records) {
             final Event event = (Event) record.getData();
             Map<String, Object> attributes = event.getMetadata().getAttributes();
-            if (attributes.containsKey(METADATA_KEY_TO_NODE)) {
-                nodeID = String.valueOf(attributes.get(METADATA_KEY_TO_NODE));
-                if(isCurrentNode(nodeID)){
+            if (attributes.containsKey(METADATA_KEY_NEXT_NODE)) {
+                String nextNodeID = String.valueOf(attributes.get(METADATA_KEY_NEXT_NODE));
+                if(nextNodeID.equals(currentNodeID)){
                     isValidNode = true;
                 }
                 break;
             }
-
         }
 
-
-
+        //skip processing if not valid node
         if(isValidNode) {
             final Collection<OutputRecord> result = timeElapsedTimer.record(() -> doExecute(records));
             recordsOutCounter.increment(result.size());
@@ -84,12 +83,13 @@ public abstract class AbstractProcessor<InputRecord extends Record<?>, OutputRec
         }else{
             return (Collection<OutputRecord>) records;
         }
-
     }
 
+    //TODO
     private boolean isCurrentNode(String nodeID) {
-        String node = pluginSetting.getPipelineName()+"."+pluginSetting.getName();
-        return node.equals(nodeID);
+        String currentNodeID = String.valueOf(pluginSetting.getSettings().get("id"));
+        String node = currentNodeID;
+        return nodeID.equals(currentNodeID);
     }
 
     /**

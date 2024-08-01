@@ -5,7 +5,12 @@
 
 package org.opensearch.dataprepper.plugins.processor;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import static org.opensearch.dataprepper.logging.DataPrepperMarkers.EVENT;
 import org.opensearch.dataprepper.model.annotations.DataPrepperPlugin;
 import org.opensearch.dataprepper.model.annotations.DataPrepperPluginConstructor;
 import org.opensearch.dataprepper.model.configuration.PluginSetting;
@@ -13,9 +18,6 @@ import org.opensearch.dataprepper.model.event.Event;
 import org.opensearch.dataprepper.model.event.JacksonEvent;
 import org.opensearch.dataprepper.model.processor.Processor;
 import org.opensearch.dataprepper.model.record.Record;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,8 +25,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static org.opensearch.dataprepper.logging.DataPrepperMarkers.EVENT;
 
 /**
  * A simple String implementation of {@link Processor} which generates new Records with uppercase or lowercase content. The current
@@ -43,6 +43,11 @@ public class StringProcessor implements Processor<Record<Event>, Record<Event>> 
     public static class Configuration {
         @JsonPropertyDescription("Whether to convert to uppercase (`true`) or lowercase (`false`).")
         private boolean upperCase = true;
+
+        @JsonProperty("id")
+        private String id;
+
+        public String getId(){return id;}
 
         public boolean getUpperCase() {
             return upperCase;
