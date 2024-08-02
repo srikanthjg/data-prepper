@@ -7,21 +7,23 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.List;
+import java.util.Map;
 
 @Builder(setterPrefix = "with")
 @Getter
 @Setter
 @AllArgsConstructor
 public class PipelineTransformationModel {
-    String pipelineName;
     String pipelineJson;
     List<JsonNode> originalPipelineProcessorList; //processorJson
-
-
+    String pluginNameThatNeedsTranformation;
     Boolean isTranformationNeeded;
-    Boolean isProcessorTransformation;
+    Boolean isProcessorTransformation; //only async processors need transformation
     Boolean isSourceTransformation;
-    Integer transformedAtProcessorIndex; //transformed at index in processor list
+    Integer transformedAtProcessorIndex; //transformed at index in processor list ; null if source transformation
+    Map<Integer, TransformablePluginModel> transformablePluginModelMap; // key:pluginId , val: pluginDetails ; source id = -1 ; processor id = 0 ...n
 
-    List<TransformablePluginModel> transformablePluginModel;
+    public PipelineTransformationModel() {
+
+    }
 }

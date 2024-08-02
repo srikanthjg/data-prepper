@@ -1,0 +1,22 @@
+"<<pipeline-name>>":
+  buffer: "<<$.<<pipeline-name>>.buffer>>"
+  source: "<<$.<<pipeline-name>>.source>>"
+  processor: []
+  sink:
+    - noop:
+
+"<<pipeline-name>>-s3":
+  buffer: "<<$.<<pipeline-name>>.buffer>>"
+  source:
+    s3:
+      codec:
+        event_json:
+      compression: "none"
+      disable_s3_metadata_in_event: true
+      scan:
+        buckets: []# to be populated
+        scheduling:
+          interval: "60s"
+  processor: #to be populated
+  sink: "<<$.<<pipeline-name>>.sink>>"
+  routes: "<<$.<<pipeline-name>>.routes>>"

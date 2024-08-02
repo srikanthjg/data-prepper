@@ -1,0 +1,2 @@
+apply_when:
+  - "$.<<pipeline-name>>.processor[?(@.aws_lambda.mode == 'event')]"

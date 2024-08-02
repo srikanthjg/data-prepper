@@ -1,2 +1,2 @@
 apply_when:
-  - "$..source.documentdb.s3_bucket"
+  - "$.<<pipeline-name>>.source.documentdb.s3_bucket"

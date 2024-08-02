@@ -7,11 +7,13 @@ package org.opensearch.dataprepper.pipeline.parser.rule;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 import org.opensearch.dataprepper.pipeline.parser.model.PipelineTransformationModel;
 import org.opensearch.dataprepper.pipeline.parser.transformer.PipelineTemplateModel;
 
 @Builder(setterPrefix = "with")
 @Getter
+@Setter
 @AllArgsConstructor
 public class RuleEvaluatorResult {
 
