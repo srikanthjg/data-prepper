@@ -17,6 +17,7 @@ import org.opensearch.dataprepper.metrics.PluginMetrics;
 import org.opensearch.dataprepper.model.annotations.DataPrepperPlugin;
 import org.opensearch.dataprepper.model.annotations.DataPrepperPluginConstructor;
 import org.opensearch.dataprepper.model.codec.OutputCodec;
+import org.opensearch.dataprepper.model.configuration.PluginSetting;
 import org.opensearch.dataprepper.model.event.Event;
 import org.opensearch.dataprepper.model.event.EventHandle;
 import org.opensearch.dataprepper.model.event.JacksonEvent;
@@ -86,8 +87,8 @@ public class LambdaProcessor extends AbstractProcessor<Record<Event>, Record<Eve
     private OutputCodec codec = null;
 
     @DataPrepperPluginConstructor
-    public LambdaProcessor(final PluginMetrics pluginMetrics, final LambdaProcessorConfig lambdaProcessorConfig, final AwsCredentialsSupplier awsCredentialsSupplier, final ExpressionEvaluator expressionEvaluator) {
-        super(pluginMetrics);
+    public LambdaProcessor(final PluginSetting pluginSetting, final PluginMetrics pluginMetrics, final LambdaProcessorConfig lambdaProcessorConfig, final AwsCredentialsSupplier awsCredentialsSupplier, final ExpressionEvaluator expressionEvaluator) {
+        super(pluginSetting, pluginMetrics);
         this.expressionEvaluator = expressionEvaluator;
         this.numberOfRecordsSuccessCounter = pluginMetrics.counter(NUMBER_OF_RECORDS_FLUSHED_TO_LAMBDA_SUCCESS);
         this.numberOfRecordsFailedCounter = pluginMetrics.counter(NUMBER_OF_RECORDS_FLUSHED_TO_LAMBDA_FAILED);
@@ -208,6 +209,11 @@ public class LambdaProcessor extends AbstractProcessor<Record<Event>, Record<Eve
             LOG.info("Writing {} to Lambda with {} events and size of {} bytes.", functionName, currentBuffer.getEventCount(), currentBuffer.getSize());
             LambdaResult lambdaResult = retryFlushToLambda(currentBuffer, errorMsgObj);
 
+            InvokeResponse lambdaResponse = lambdaResult.getLambdaResponse();
+            int statusCode = lambdaResponse.statusCode();
+            if (statusCode < 200 || statusCode >= 300) {
+                throw new RuntimeException("Lambda invocation failed with status code: " + statusCode);
+            }
             if (lambdaResult.getIsUploadedToLambda()) {
                 LOG.info("Successfully flushed to Lambda {}.", functionName);
                 numberOfRecordsSuccessCounter.increment(currentBuffer.getEventCount());
@@ -216,9 +222,8 @@ public class LambdaProcessor extends AbstractProcessor<Record<Event>, Record<Eve
                 requestPayload.set(currentBuffer.getPayloadRequestSyncSize());
                 responsePayload.set(currentBuffer.getPayloadResponseSyncSize());
 
-                InvokeResponse lambdaResponse = lambdaResult.getLambdaResponse();
                 Event lambdaEvent = convertLambdaResponseToEvent(lambdaResponse);
-                if(resultRecords!=null) {
+                if (resultRecords != null && invocationType.equals(SYNC_INVOCATION_TYPE)) {
                     resultRecords.add(new Record<>(lambdaEvent));
                 }
                 //reset buffer after flush
@@ -238,14 +243,20 @@ public class LambdaProcessor extends AbstractProcessor<Record<Event>, Record<Eve
             try {
                 InvokeResponse resp = currentBuffer.flushToLambdaSync();
                 isUploadedToLambda = Boolean.TRUE;
-                LambdaResult lambdaResult = LambdaResult.builder().withIsUploadedToLambda(isUploadedToLambda).withLambdaResponse(resp).build();
+                LambdaResult lambdaResult = LambdaResult.builder()
+                        .withIsUploadedToLambda(isUploadedToLambda)
+                        .withLambdaResponse(resp)
+                        .build();
                 return lambdaResult;
             } catch (AwsServiceException | SdkClientException e) {
                 errorMsgObj.set(e.getMessage());
                 LOG.error("Exception occurred while uploading records to lambda. Retry countdown  : {} | exception:", retryCount, e);
                 --retryCount;
                 if (retryCount == 0) {
-                    LambdaResult lambdaResult = LambdaResult.builder().withIsUploadedToLambda(isUploadedToLambda).withLambdaResponse(null).build();
+                    LambdaResult lambdaResult = LambdaResult.builder()
+                            .withIsUploadedToLambda(isUploadedToLambda)
+                            .withLambdaResponse(null)
+                            .build();
                     return lambdaResult;
                 }
                 Thread.sleep(5000);
@@ -258,11 +269,6 @@ public class LambdaProcessor extends AbstractProcessor<Record<Event>, Record<Eve
 
     Event convertLambdaResponseToEvent(InvokeResponse lambdaResponse) {
         try {
-            int statusCode = lambdaResponse.statusCode();
-            if (statusCode < 200 || statusCode >= 300) {
-                throw new RuntimeException("Lambda invocation failed with status code: " + statusCode);
-            }
-
             SdkBytes payload = lambdaResponse.payload();
             if (payload != null) {
                 String payloadJsonString = payload.asString(StandardCharsets.UTF_8);

@@ -10,7 +10,7 @@
   source:
     s3:
       codec:
-        event_json:
+        newline:
       compression: "none"
       disable_s3_metadata_in_event: true
       scan:

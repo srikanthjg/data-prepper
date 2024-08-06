@@ -8,12 +8,16 @@ package org.opensearch.dataprepper.plugins.source.s3;
 import org.opensearch.dataprepper.model.event.Event;
 import org.opensearch.dataprepper.model.event.EventMetadata;
 import org.opensearch.dataprepper.plugins.source.s3.configuration.S3ScanBucketOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 
 class EventMetadataModifier implements BiConsumer<Event, S3ObjectReference> {
+    private static final Logger LOG = LoggerFactory.getLogger(EventMetadataModifier.class);
+
     private static final String BUCKET_FIELD_NAME = "bucket";
     private static final String KEY_FIELD_NAME = "key";
     public static final String METADATA_KEY_NEXT_NODE = "next_node";
@@ -41,6 +45,7 @@ class EventMetadataModifier implements BiConsumer<Event, S3ObjectReference> {
             if(bucketName.equals(s3ObjectReference.getBucketName())) {
                 String nextNode = s3BucketOption.getS3ScanBucketOption().getNextNode();
                 eventMetadata.setAttribute(METADATA_KEY_NEXT_NODE, nextNode);
+                LOG.info("Adding next node {} metadata to event from bucket {}",nextNode, bucketName);
             }
         }
 

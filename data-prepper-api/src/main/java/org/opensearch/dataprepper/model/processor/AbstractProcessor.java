@@ -12,8 +12,11 @@ import org.opensearch.dataprepper.metrics.PluginMetrics;
 import org.opensearch.dataprepper.model.configuration.PluginSetting;
 import org.opensearch.dataprepper.model.event.Event;
 import org.opensearch.dataprepper.model.record.Record;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -23,6 +26,7 @@ import java.util.Map;
  */
 public abstract class AbstractProcessor<InputRecord extends Record<?>, OutputRecord extends Record<?>> implements
         Processor<InputRecord, OutputRecord> {
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractProcessor.class);
 
     public static final String METADATA_KEY_NEXT_NODE = "next_node";
     protected final PluginMetrics pluginMetrics;
@@ -47,6 +51,14 @@ public abstract class AbstractProcessor<InputRecord extends Record<?>, OutputRec
         this.pluginSetting = null;
     }
 
+    protected AbstractProcessor(final PluginSetting pluginSetting, final PluginMetrics pluginMetrics) {
+        this.pluginMetrics = pluginMetrics;
+        recordsInCounter = pluginMetrics.counter(MetricNames.RECORDS_IN);
+        recordsOutCounter = pluginMetrics.counter(MetricNames.RECORDS_OUT);
+        timeElapsedTimer = pluginMetrics.timer(MetricNames.TIME_ELAPSED);
+        this.pluginSetting = pluginSetting;
+    }
+
     /**
      * @since 1.2
      * This execute function calls the {@link AbstractProcessor#doExecute(Collection)} function of the implementation,
@@ -58,31 +70,32 @@ public abstract class AbstractProcessor<InputRecord extends Record<?>, OutputRec
     public Collection<OutputRecord> execute(Collection<InputRecord> records) {
         recordsInCounter.increment(records.size());
 
-        Boolean isValidNode = false;
         String currentNodeID = String.valueOf(pluginSetting.getSettings().get("id"));
 
         // Check if right node to start execution chain
         // Assumption: all events of records have the same metadata.
-        for (InputRecord record : records) {
-            final Event event = (Event) record.getData();
-            Map<String, Object> attributes = event.getMetadata().getAttributes();
-            if (attributes.containsKey(METADATA_KEY_NEXT_NODE)) {
-                String nextNodeID = String.valueOf(attributes.get(METADATA_KEY_NEXT_NODE));
-                if(nextNodeID.equals(currentNodeID)){
-                    isValidNode = true;
-                }
-                break;
+        Event event = extractSingleEvent(records);
+        if(event==null) return Collections.emptyList();
+
+        Map<String, Object> attributes = event.getMetadata().getAttributes();
+        if (attributes.containsKey(METADATA_KEY_NEXT_NODE)) {
+            String nextNodeID = String.valueOf(attributes.get(METADATA_KEY_NEXT_NODE));
+            LOG.info("next node ID from event metadata = {} for nodeID ={}",nextNodeID,currentNodeID);
+            if (nextNodeID.equals("null")) return (Collection<OutputRecord>) records;
+
+            if (Integer.parseInt(nextNodeID) <= Integer.parseInt(currentNodeID)) {
+                final Collection<OutputRecord> result = timeElapsedTimer.record(() -> doExecute(records));
+                recordsOutCounter.increment(result.size());
+                return result;
+            }else{
+                //skip processing if not valid node
+                return (Collection<OutputRecord>) records;
             }
         }
 
-        //skip processing if not valid node
-        if(isValidNode) {
-            final Collection<OutputRecord> result = timeElapsedTimer.record(() -> doExecute(records));
-            recordsOutCounter.increment(result.size());
-            return result;
-        }else{
-            return (Collection<OutputRecord>) records;
-        }
+        final Collection<OutputRecord> result = timeElapsedTimer.record(() -> doExecute(records));
+        recordsOutCounter.increment(result.size());
+        return result;
     }
 
     //TODO
@@ -90,6 +103,16 @@ public abstract class AbstractProcessor<InputRecord extends Record<?>, OutputRec
         String currentNodeID = String.valueOf(pluginSetting.getSettings().get("id"));
         String node = currentNodeID;
         return nodeID.equals(currentNodeID);
+    }
+
+    public Event extractSingleEvent(Collection<InputRecord> records) {
+        // Iterate over the collection and extract the first event
+        for (InputRecord record : records) {
+            // Assuming the InputRecord has a getData() method that returns an Event
+            Event event = (Event) record.getData();
+            return event; // Return the first event found
+        }
+        return null; // Return null if no records are found
     }
 
     /**

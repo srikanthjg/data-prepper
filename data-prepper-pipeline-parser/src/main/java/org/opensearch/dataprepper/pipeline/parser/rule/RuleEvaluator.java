@@ -365,14 +365,13 @@ public class RuleEvaluator {
             Map<Integer, TransformablePluginModel> transformablePluginModelMap = pipelineTransformationModel.getTransformablePluginModelMap();
 
             //processor transformation
-            //result cannot be null here as readPathContext.read did not throw an exception.
             if(rules.get(0).contains("aws_lambda")){
                 ArrayNode processorsFromRule = (ArrayNode) result;
                 Integer processorTransformationIndex = Integer.MAX_VALUE;
                 for (JsonNode processor : processorsFromRule) {
                     Integer id = Integer.valueOf(String.valueOf(processor.at("/"+pluginName+"/id")));
                     processorTransformationIndex = Integer.min(id,processorTransformationIndex);
-                    String s3_bucket = String.valueOf(processor.at("/"+pluginName+"/s3_bucket"));
+                    String s3_bucket = processor.at("/"+pluginName+"/s3_bucket").asText();
                     Integer nextNode = getNextNode(id,processors.size());
                     TransformablePluginModel transformablePluginModel =
                             TransformablePluginModel.builder()
