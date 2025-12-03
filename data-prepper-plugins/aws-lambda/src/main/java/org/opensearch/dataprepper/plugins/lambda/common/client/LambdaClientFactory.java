@@ -7,6 +7,8 @@ import org.opensearch.dataprepper.plugins.lambda.common.config.AwsAuthentication
 import org.opensearch.dataprepper.plugins.lambda.common.config.ClientOptions;
 import org.opensearch.dataprepper.plugins.lambda.common.util.CustomLambdaRetryCondition;
 import org.opensearch.dataprepper.plugins.metricpublisher.MicrometerMetricPublisher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.retry.RetryPolicy;
@@ -16,6 +18,7 @@ import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.services.lambda.LambdaAsyncClient;
 
 public final class LambdaClientFactory {
+  private static final Logger LOG = LoggerFactory.getLogger(LambdaClientFactory.class);
 
   public static LambdaAsyncClient createAsyncLambdaClient(
           final AwsAuthenticationOptions awsAuthenticationOptions,
@@ -27,6 +30,9 @@ public final class LambdaClientFactory {
             awsCredentialsOptions);
     final PluginMetrics awsSdkMetrics = PluginMetrics.fromNames("sdk", "aws");
 
+    LOG.info("Lambda client configured with read_timeout: {}, acquire_timeout: {}",
+            clientOptions.getReadTimeout(), clientOptions.getAcquireTimeout());
+
     return LambdaAsyncClient.builder()
             .region(awsAuthenticationOptions.getAwsRegion())
             .credentialsProvider(awsCredentialsProvider)
@@ -34,7 +40,10 @@ public final class LambdaClientFactory {
                     createOverrideConfiguration(clientOptions, awsSdkMetrics))
             .httpClient(NettyNioAsyncHttpClient.builder()
                     .maxConcurrency(clientOptions.getMaxConcurrency())
-                    .connectionTimeout(clientOptions.getConnectionTimeout()).build())
+                    .connectionTimeout(clientOptions.getConnectionTimeout())
+                    .readTimeout(clientOptions.getReadTimeout())
+                    .connectionAcquisitionTimeout(clientOptions.getAcquireTimeout())
+                    .build())
             .build();
   }
 

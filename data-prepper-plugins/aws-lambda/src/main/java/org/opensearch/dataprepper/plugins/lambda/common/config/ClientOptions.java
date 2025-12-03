@@ -14,6 +14,8 @@ public class ClientOptions {
     public static final Duration DEFAULT_API_TIMEOUT = Duration.ofSeconds(60);
     public static final Duration DEFAULT_BASE_DELAY = Duration.ofMillis(100);
     public static final Duration DEFAULT_MAX_BACKOFF = Duration.ofSeconds(20);
+    public static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(60);
+    public static final Duration DEFAULT_ACQUIRE_TIMEOUT = Duration.ofSeconds(60);
 
     @JsonPropertyDescription("Total retries we want before failing")
     @JsonProperty("max_retries")
@@ -38,5 +40,13 @@ public class ClientOptions {
     @JsonPropertyDescription("Maximum backoff time for exponential backoff")
     @JsonProperty("max_backoff")
     private Duration maxBackoff = DEFAULT_MAX_BACKOFF;
+
+    @JsonPropertyDescription("Read timeout defines the maximum time to wait for data from an established connection")
+    @JsonProperty("read_timeout")
+    private Duration readTimeout = DEFAULT_READ_TIMEOUT;
+
+    @JsonPropertyDescription("Acquire timeout defines the maximum time to wait to acquire a connection from the pool")
+    @JsonProperty("acquire_timeout")
+    private Duration acquireTimeout = DEFAULT_ACQUIRE_TIMEOUT;
 
 }
